@@ -1,4 +1,6 @@
 import type { Message } from "./storage";
+import { searxngSearch, type SearchResult } from "./searxng";
+import type { Citation } from "./storage";
 
 export interface OllamaModel {
   name: string;
@@ -67,6 +69,152 @@ export async function streamChat(opts: StreamOptions): Promise<string> {
     }
   }
   return full;
+}
+
+// ---- Tool-calling chat (web_search) ----
+
+export interface ToolCallOptions {
+  baseUrl: string;
+  model: string;
+  messages: any[];
+  signal?: AbortSignal;
+  onDelta: (text: string) => void;
+  onToolStart?: (name: string, args: any) => void;
+  onToolResult?: (name: string, results: SearchResult[]) => void;
+  searxngUrl?: string;
+  webSearchResults?: number;
+  maxSteps?: number;
+}
+
+const WEB_SEARCH_TOOL = {
+  type: "function",
+  function: {
+    name: "web_search",
+    description:
+      "Search the live web for up-to-date information. Use this whenever the user asks about current events, recent data, prices, news, or anything that may have changed after your training cutoff.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "The search query" },
+      },
+      required: ["query"],
+    },
+  },
+};
+
+/**
+ * Stream a chat completion that can invoke the web_search tool.
+ * Loops: call /api/chat (non-streaming) to detect tool calls. If none, do a
+ * streaming call for the final answer. If tool calls present, execute and feed back.
+ */
+export async function streamChatWithTools(opts: ToolCallOptions): Promise<{
+  text: string;
+  citations: Citation[];
+}> {
+  const tools = opts.searxngUrl ? [WEB_SEARCH_TOOL] : undefined;
+  const messages = [...opts.messages];
+  const citations: Citation[] = [];
+  const maxSteps = opts.maxSteps ?? 4;
+
+  for (let step = 0; step < maxSteps; step++) {
+    // Probe (non-streaming) so we can read tool_calls reliably.
+    const probe = await fetch(
+      `${opts.baseUrl.replace(/\/$/, "")}/api/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: opts.signal,
+        body: JSON.stringify({
+          model: opts.model,
+          messages,
+          stream: false,
+          tools,
+        }),
+      }
+    );
+    if (!probe.ok) {
+      const t = await probe.text().catch(() => "");
+      throw new Error(`Ollama chat failed: ${probe.status} ${t}`);
+    }
+    const data = await probe.json();
+    const msg = data?.message ?? {};
+    const toolCalls: any[] = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
+
+    if (toolCalls.length === 0) {
+      // Final answer — re-issue as a streaming call for nice UX.
+      const full = await streamChat({
+        baseUrl: opts.baseUrl,
+        model: opts.model,
+        messages,
+        signal: opts.signal,
+        onDelta: opts.onDelta,
+      });
+      // If streaming returned empty (some models don't replay), fall back to probe content.
+      const finalText = full || String(msg.content ?? "");
+      if (!full && finalText) opts.onDelta(finalText);
+      return { text: finalText, citations };
+    }
+
+    // Record assistant message that requested the tools.
+    messages.push({
+      role: "assistant",
+      content: msg.content ?? "",
+      tool_calls: toolCalls,
+    });
+
+    for (const call of toolCalls) {
+      const fn = call?.function ?? {};
+      const name = String(fn.name ?? "");
+      let args: any = fn.arguments ?? {};
+      if (typeof args === "string") {
+        try {
+          args = JSON.parse(args);
+        } catch {
+          args = { query: args };
+        }
+      }
+      if (name === "web_search" && opts.searxngUrl) {
+        const query = String(args.query ?? "");
+        opts.onToolStart?.(name, { query });
+        try {
+          const results = await searxngSearch(
+            opts.searxngUrl,
+            query,
+            opts.webSearchResults ?? 5
+          );
+          opts.onToolResult?.(name, results);
+          for (const r of results) {
+            if (!citations.find((c) => c.url === r.url)) citations.push(r);
+          }
+          const ctx = results
+            .map(
+              (r, i) =>
+                `[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.snippet ?? ""}`
+            )
+            .join("\n\n");
+          messages.push({
+            role: "tool",
+            content: ctx || "No results.",
+            name,
+          });
+        } catch (e: any) {
+          messages.push({
+            role: "tool",
+            content: `Search failed: ${e?.message ?? "unknown error"}`,
+            name,
+          });
+        }
+      } else {
+        messages.push({
+          role: "tool",
+          content: `Tool ${name} not available.`,
+          name,
+        });
+      }
+    }
+  }
+
+  return { text: "", citations };
 }
 
 export function toApiMessages(messages: Message[], systemPrompt?: string) {
