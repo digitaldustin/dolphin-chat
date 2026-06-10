@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { RefreshCw, Check } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings · Odyssey" }] }),
+  head: () => ({ meta: [{ title: "Settings · Dolphin" }] }),
   component: SettingsPage,
 });
 
@@ -223,7 +223,7 @@ function SettingsPage() {
           <Section title="Deep Research">
             <Field
               label="Use OpenCode agent"
-              hint="When on, deep research is delegated to a local `opencode serve` process. When off, Odyssey runs an Ollama + SearXNG research loop."
+              hint="When on, deep research is delegated to a local `opencode serve` process. When off, Dolphin runs an Ollama + SearXNG research loop."
             >
               <label className="flex items-center gap-2 text-sm">
                 <input

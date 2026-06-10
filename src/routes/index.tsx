@@ -7,7 +7,7 @@ import { useMemo } from "react";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Odyssey · Local AI Chat" },
+      { title: "Dolphin · Local AI Chat" },
       {
         name: "description",
         content:

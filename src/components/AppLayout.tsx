@@ -34,7 +34,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-2 px-5 py-5">
           <Compass className="h-5 w-5" />
-          <span className="font-serif text-xl tracking-tight">Odyssey</span>
+          <span className="font-serif text-xl tracking-tight">Dolphin</span>
         </div>
 
         <button

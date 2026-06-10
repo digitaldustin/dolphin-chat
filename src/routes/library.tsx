@@ -19,7 +19,7 @@ import { MessageSquare, FileText, Upload, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/library")({
-  head: () => ({ meta: [{ title: "Library · Odyssey" }] }),
+  head: () => ({ meta: [{ title: "Library · Dolphin" }] }),
   component: LibraryPage,
 });
 

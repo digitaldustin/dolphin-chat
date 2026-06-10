@@ -396,7 +396,7 @@ export function ChatView({ chatId }: { chatId: string }) {
                   ? "Ask a deep research question…"
                   : mode === "web"
                   ? "Search the web and ask…"
-                  : "Message Odyssey"
+                  : "Message Dolphin"
               }
               rows={1}
               className="block max-h-48 min-h-[52px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] outline-none placeholder:text-muted-foreground"
@@ -578,7 +578,7 @@ function MessageBlock({ message }: { message: Message }) {
 function EmptyHero() {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="font-serif text-5xl tracking-tight">Odyssey</div>
+      <div className="font-serif text-5xl tracking-tight">Dolphin</div>
       <p className="mt-3 max-w-md text-sm text-muted-foreground">
         A private chat for your local Ollama models. Switch modes below to
         search the web or run deep research.

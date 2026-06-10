@@ -84,7 +84,7 @@ const DEFAULTS: Settings = {
   appearance: "dark",
 };
 
-const SETTINGS_KEY = "odyssey.settings.v1";
+const SETTINGS_KEY = "dolphin.settings.v1";
 
 export function loadSettings(): Settings {
   if (typeof window === "undefined") return DEFAULTS;
