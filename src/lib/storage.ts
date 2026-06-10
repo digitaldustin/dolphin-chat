@@ -1,7 +1,7 @@
 import { get, set, del, keys } from "idb-keyval";
 
 export type ChatRole = "user" | "assistant" | "system";
-export type ChatMode = "chat" | "web" | "research";
+export type ChatMode = "chat" | "research";
 
 export interface Citation {
   title: string;
