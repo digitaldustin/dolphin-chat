@@ -26,8 +26,7 @@ import {
   newId,
   saveReport,
 } from "@/lib/storage";
-import { streamChat, toApiMessages, generateTitle } from "@/lib/ollama";
-import { searxngSearch, formatSearchContext } from "@/lib/searxng";
+import { streamChat, streamChatWithTools, toApiMessages, generateTitle } from "@/lib/ollama";
 import { runDeepResearch, type ResearchProgress } from "@/lib/research";
 import { Markdown } from "./Markdown";
 import { ModelSelector } from "./ModelSelector";
@@ -232,44 +231,43 @@ export function ChatView({ chatId }: { chatId: string }) {
           createdAt: Date.now(),
         };
         await saveReport(report);
-      } else if (mode === "web") {
-        if (!settings.searxngUrl) {
-          throw new Error(
-            "Set your SearXNG URL in Settings to use Web Search."
-          );
-        }
-        setProgress({ phase: "searching", message: "Searching the web…" });
-        const results = await searxngSearch(
-          settings.searxngUrl,
-          text,
-          settings.webSearchResults
-        );
-        updateAssistant({ citations: results });
-        setProgress({ phase: "synthesizing", message: "Reading sources…" });
-        const ctx = formatSearchContext(results);
-        const sys = `${settings.systemPrompt}\n\nYou have access to fresh web search results. Cite sources as [n] referring to their number. Be concise and accurate.`;
-        const history = toApiMessages(chat.messages, sys);
-        history.push({
-          role: "user",
-          content: `${promptText}\n\n--- Web search results ---\n${ctx}`,
-        });
-        await streamChat({
-          baseUrl: settings.ollamaBaseUrl,
-          model: settings.ollamaModel,
-          messages: history,
-          signal: ctrl.signal,
-          onDelta: appendDelta,
-        });
       } else {
-        const history = toApiMessages(chat.messages, settings.systemPrompt);
+        const sys = settings.searxngUrl
+          ? `${settings.systemPrompt}\n\nYou have a web_search(query) tool. Call it whenever the user asks about recent events, news, prices, live data, or anything you may not know. Cite sources using [n] referring to the numbered results returned by the tool.`
+          : settings.systemPrompt;
+        const history = toApiMessages(chat.messages, sys);
         history.push({ role: "user", content: promptText });
-        await streamChat({
+        const result = await streamChatWithTools({
           baseUrl: settings.ollamaBaseUrl,
           model: settings.ollamaModel,
           messages: history,
           signal: ctrl.signal,
           onDelta: appendDelta,
+          searxngUrl: settings.searxngUrl,
+          webSearchResults: settings.webSearchResults,
+          onToolStart: (_n, args) =>
+            setProgress({
+              phase: "searching",
+              message: `Searching the web for "${args.query}"…`,
+            }),
+          onToolResult: (_n, results) => {
+            setChat((c) => {
+              if (!c) return c;
+              const msgs = c.messages.map((m) => {
+                if (m.id !== asstMsg.id) return m;
+                const prev = m.citations ?? [];
+                const merged = [...prev];
+                for (const r of results) {
+                  if (!merged.find((x) => x.url === r.url)) merged.push(r);
+                }
+                return { ...m, citations: merged };
+              });
+              return { ...c, messages: msgs };
+            });
+            setProgress({ phase: "synthesizing", message: "Reading sources…" });
+          },
         });
+        if (result.citations.length) updateAssistant({ citations: result.citations });
       }
 
       // Persist & title
@@ -394,8 +392,6 @@ export function ChatView({ chatId }: { chatId: string }) {
               placeholder={
                 mode === "research"
                   ? "Ask a deep research question…"
-                  : mode === "web"
-                  ? "Search the web and ask…"
                   : "Message Dolphin"
               }
               rows={1}
@@ -432,12 +428,6 @@ export function ChatView({ chatId }: { chatId: string }) {
                   onClick={() => setMode("chat")}
                   icon={<MessageSquare className="h-3.5 w-3.5" />}
                   label="Chat"
-                />
-                <ModeBtn
-                  active={mode === "web"}
-                  onClick={() => setMode("web")}
-                  icon={<Globe className="h-3.5 w-3.5" />}
-                  label="Web search"
                 />
                 <ModeBtn
                   active={mode === "research"}
@@ -532,13 +522,8 @@ function MessageBlock({ message }: { message: Message }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-        {message.mode === "web" && <Globe className="h-3 w-3" />}
         {message.mode === "research" && <Sparkles className="h-3 w-3" />}
-        {message.mode === "research"
-          ? "Deep research"
-          : message.mode === "web"
-          ? "Web search"
-          : "Assistant"}
+        {message.mode === "research" ? "Deep research" : "Assistant"}
       </div>
       {message.content ? (
         <Markdown>{message.content}</Markdown>
