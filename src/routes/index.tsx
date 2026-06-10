@@ -1,29 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AppLayout } from "@/components/AppLayout";
+import { ChatView } from "@/components/ChatView";
+import { newId } from "@/lib/storage";
+import { useMemo } from "react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
+      { title: "Odyssey · Local AI Chat" },
+      {
+        name: "description",
+        content:
+          "A private chat app for local Ollama models with web search and deep research.",
+      },
     ],
   }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  // Stable per-mount id so reloads don't keep stacking blank chats.
+  const id = useMemo(() => newId(), []);
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <AppLayout>
+      <ChatView chatId={id} />
+    </AppLayout>
   );
 }

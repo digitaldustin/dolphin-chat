@@ -1,0 +1,33 @@
+services:
+  odyssey:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: odyssey
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - searxng
+    # The Ollama and SearXNG URLs are configured in the app's Settings page
+    # (stored in your browser). Defaults assume:
+    #   Ollama   -> http://localhost:11434  (running on the host)
+    #   SearXNG  -> http://localhost:8888   (the searxng service below)
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: odyssey-searxng
+    restart: unless-stopped
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888/
+      - INSTANCE_NAME=odyssey-searxng
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
