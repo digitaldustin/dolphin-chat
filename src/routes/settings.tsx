@@ -235,26 +235,6 @@ function SettingsPage() {
               </label>
             </Field>
             <Field
-              label="OpenCode server URL"
-              hint="Start it with `opencode serve --port 4096`."
-            >
-              <div className="flex gap-2">
-                <input
-                  className="input"
-                  value={s.opencodeUrl}
-                  onChange={(e) => update("opencodeUrl", e.target.value)}
-                  placeholder="http://localhost:4096"
-                />
-                <button
-                  className="btn"
-                  disabled={testing === "OpenCode"}
-                  onClick={() => testEndpoint("OpenCode", s.opencodeUrl, "/app")}
-                >
-                  Test
-                </button>
-              </div>
-            </Field>
-            <Field
               label="Research depth (sub-queries)"
               hint="Used by the Ollama+SearXNG loop."
             >
