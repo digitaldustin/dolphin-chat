@@ -61,7 +61,6 @@ export interface Settings {
   ollamaBaseUrl: string;
   ollamaModel: string;
   searxngUrl: string;
-  opencodeUrl: string;
   opencodeEnabled: boolean;
   webSearchResults: number;
   researchDepth: number;
@@ -74,7 +73,6 @@ const DEFAULTS: Settings = {
   ollamaBaseUrl: "http://localhost:11434",
   ollamaModel: "llama3.2:latest",
   searxngUrl: "http://localhost:8888",
-  opencodeUrl: "http://localhost:4096",
   opencodeEnabled: false,
   webSearchResults: 5,
   researchDepth: 3,
