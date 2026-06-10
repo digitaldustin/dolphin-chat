@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUp,
-  Globe,
   Sparkles,
   MessageSquare,
   Square,
