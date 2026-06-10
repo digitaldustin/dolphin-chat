@@ -17,41 +17,81 @@ interface RunOpts {
   onDelta?: (s: string) => void;
 }
 
-/** OpenCode SDK path (if enabled) — uses opencode HTTP server (`opencode serve`). */
+/** OpenCode path: spawns a fresh `opencode serve` per request, uses the
+ *  currently selected Ollama model, then tears it down. */
 async function runOpenCodeResearch(opts: RunOpts): Promise<{
   content: string;
   citations: Citation[];
 }> {
   const { settings, query, signal, onProgress, onDelta } = opts;
-  onProgress({ phase: "opencode", message: "Sending task to OpenCode agent…" });
 
-  // Create a session, send a message, await assistant reply.
-  const base = settings.opencodeUrl.replace(/\/$/, "");
-  const sessRes = await fetch(`${base}/session`, {
-    method: "POST",
-    signal,
-  });
-  if (!sessRes.ok) throw new Error(`OpenCode /session ${sessRes.status}`);
-  const session = await sessRes.json();
-  const sessionId: string = session.id ?? session.session?.id;
-  if (!sessionId) throw new Error("OpenCode: no session id returned");
-
-  const msgRes = await fetch(`${base}/session/${sessionId}/message`, {
+  onProgress({ phase: "opencode", message: "Spinning up OpenCode instance…" });
+  const startRes = await fetch("/api/opencode", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal,
     body: JSON.stringify({
-      parts: [{ type: "text", text: buildResearchPrompt(query) }],
+      action: "start",
+      ollamaBaseUrl: settings.ollamaBaseUrl,
     }),
   });
-  if (!msgRes.ok) {
-    const t = await msgRes.text().catch(() => "");
-    throw new Error(`OpenCode message failed: ${msgRes.status} ${t}`);
+  if (!startRes.ok) {
+    const t = await startRes.text().catch(() => "");
+    throw new Error(`Could not start OpenCode: ${t || startRes.status}`);
   }
-  const reply = await msgRes.json();
-  const text = extractOpenCodeText(reply);
-  onDelta?.(text);
-  return { content: text, citations: [] };
+  const { id: instanceId, url: base } = (await startRes.json()) as {
+    id: string;
+    url: string;
+  };
+
+  const stop = async () => {
+    try {
+      await fetch("/api/opencode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop", id: instanceId }),
+        keepalive: true,
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  try {
+    onProgress({
+      phase: "opencode",
+      message: `Sending task to OpenCode (${settings.ollamaModel})…`,
+    });
+
+    // Create a session.
+    const sessRes = await fetch(`${base}/session`, { method: "POST", signal });
+    if (!sessRes.ok) throw new Error(`OpenCode /session ${sessRes.status}`);
+    const session = await sessRes.json();
+    const sessionId: string = session.id ?? session.session?.id;
+    if (!sessionId) throw new Error("OpenCode: no session id returned");
+
+    // Send the research prompt using the currently selected Ollama model.
+    const msgRes = await fetch(`${base}/session/${sessionId}/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal,
+      body: JSON.stringify({
+        providerID: "ollama",
+        modelID: settings.ollamaModel,
+        parts: [{ type: "text", text: buildResearchPrompt(query) }],
+      }),
+    });
+    if (!msgRes.ok) {
+      const t = await msgRes.text().catch(() => "");
+      throw new Error(`OpenCode message failed: ${msgRes.status} ${t}`);
+    }
+    const reply = await msgRes.json();
+    const text = extractOpenCodeText(reply);
+    onDelta?.(text);
+    return { content: text, citations: [] };
+  } finally {
+    void stop();
+  }
 }
 
 function buildResearchPrompt(q: string) {
