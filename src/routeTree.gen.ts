@@ -13,6 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CChatIdRouteImport } from './routes/c.$chatId'
+import { Route as ApiOpencodeRouteImport } from './routes/api/opencode'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -34,17 +35,24 @@ const CChatIdRoute = CChatIdRouteImport.update({
   path: '/c/$chatId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOpencodeRoute = ApiOpencodeRouteImport.update({
+  id: '/api/opencode',
+  path: '/api/opencode',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/api/opencode': typeof ApiOpencodeRoute
   '/c/$chatId': typeof CChatIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/api/opencode': typeof ApiOpencodeRoute
   '/c/$chatId': typeof CChatIdRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,28 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/api/opencode': typeof ApiOpencodeRoute
   '/c/$chatId': typeof CChatIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/library' | '/settings' | '/c/$chatId'
+  fullPaths: '/' | '/library' | '/settings' | '/api/opencode' | '/c/$chatId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/library' | '/settings' | '/c/$chatId'
-  id: '__root__' | '/' | '/library' | '/settings' | '/c/$chatId'
+  to: '/' | '/library' | '/settings' | '/api/opencode' | '/c/$chatId'
+  id:
+    | '__root__'
+    | '/'
+    | '/library'
+    | '/settings'
+    | '/api/opencode'
+    | '/c/$chatId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LibraryRoute: typeof LibraryRoute
   SettingsRoute: typeof SettingsRoute
+  ApiOpencodeRoute: typeof ApiOpencodeRoute
   CChatIdRoute: typeof CChatIdRoute
 }
 
@@ -99,6 +115,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CChatIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/opencode': {
+      id: '/api/opencode'
+      path: '/api/opencode'
+      fullPath: '/api/opencode'
+      preLoaderRoute: typeof ApiOpencodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -106,8 +129,19 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LibraryRoute: LibraryRoute,
   SettingsRoute: SettingsRoute,
+  ApiOpencodeRoute: ApiOpencodeRoute,
   CChatIdRoute: CChatIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
