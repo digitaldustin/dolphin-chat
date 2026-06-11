@@ -140,6 +140,8 @@ async function runOllamaResearch(opts: RunOpts): Promise<{
         },
       ],
       onDelta: () => {},
+      temperature: settings.temperature,
+      maxTokens: settings.maxTokens,
     })
   );
   let subqueries: string[] = [];
@@ -207,6 +209,8 @@ async function runOllamaResearch(opts: RunOpts): Promise<{
       full += d;
       onDelta?.(d);
     },
+    temperature: settings.temperature,
+    maxTokens: settings.maxTokens,
   });
 
   return { content: full, citations: deduped };
