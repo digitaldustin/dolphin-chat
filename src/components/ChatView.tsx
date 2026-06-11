@@ -23,8 +23,6 @@ import {
   getChat,
   saveChat,
   saveFile,
-  saveSettings,
-  loadSettings,
   newId,
   saveReport,
 } from "@/lib/storage";
