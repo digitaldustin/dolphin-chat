@@ -1,0 +1,189 @@
+general:
+  debug: false
+  instance_name: "Dolphin Chat"
+  contact_url: "mailto:admin@example.com"
+  enable_metrics: true
+  metrics_password: "changeme"
+
+server:
+  bind_address: "0.0.0.0"
+  port: 8080
+  secret_key: "changeme-generate-with-openssl-rand-hex-32"
+  limiter: true
+  max_requests: 100
+  timeout: 30
+
+search:
+  safe_search: 1
+  autocomplete: "google"
+  default_lang: "en"
+  formats:
+    - html
+    - json
+
+redis:
+  enabled: false
+
+categories:
+  general:
+    - google
+    - bing
+    - duckduckgo
+    - brave
+    - startpage
+  images:
+    - google_images
+    - bing_images
+    - duckduckgo_images
+  videos:
+    - google_videos
+    - bing_videos
+  news:
+    - google_news
+    - bing_news
+  science:
+    - google_scholar
+    - semantic_scholar
+  map:
+    - openstreetmap
+  music:
+    - soundcloud
+  files:
+    - google
+    - bing
+  social:
+    - reddit
+    - twitter
+  it:
+    - github
+    - gitlab
+    - stackoverflow
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+    categories: [general, images, videos, news, files]
+    disabled: false
+    timeout: 5.0
+    send_accept_language_header: true
+  - name: bing
+    engine: bing
+    shortcut: b
+    categories: [general, images, videos, news, files]
+    disabled: false
+    timeout: 5.0
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: d
+    categories: [general, images, videos]
+    disabled: false
+    timeout: 5.0
+  - name: brave
+    engine: brave
+    shortcut: br
+    categories: [general]
+    disabled: false
+    timeout: 5.0
+  - name: startpage
+    engine: startpage
+    shortcut: sp
+    categories: [general]
+    disabled: false
+    timeout: 5.0
+  - name: google_images
+    engine: google_images
+    shortcut: gi
+    categories: [images]
+    disabled: false
+    timeout: 5.0
+  - name: bing_images
+    engine: bing_images
+    shortcut: bi
+    categories: [images]
+    disabled: false
+    timeout: 5.0
+  - name: duckduckgo_images
+    engine: duckduckgo_images
+    shortcut: di
+    categories: [images]
+    disabled: false
+    timeout: 5.0
+  - name: google_videos
+    engine: google_videos
+    shortcut: gv
+    categories: [videos]
+    disabled: false
+    timeout: 5.0
+  - name: bing_videos
+    engine: bing_videos
+    shortcut: bv
+    categories: [videos]
+    disabled: false
+    timeout: 5.0
+  - name: google_news
+    engine: google_news
+    shortcut: gn
+    categories: [news]
+    disabled: false
+    timeout: 5.0
+  - name: bing_news
+    engine: bing_news
+    shortcut: bn
+    categories: [news]
+    disabled: false
+    timeout: 5.0
+  - name: google_scholar
+    engine: google_scholar
+    shortcut: gs
+    categories: [science]
+    disabled: false
+    timeout: 5.0
+  - name: semantic_scholar
+    engine: semantic_scholar
+    shortcut: ss
+    categories: [science]
+    disabled: false
+    timeout: 5.0
+  - name: openstreetmap
+    engine: openstreetmap
+    shortcut: map
+    categories: [map]
+    disabled: false
+    timeout: 5.0
+  - name: soundcloud
+    engine: soundcloud
+    shortcut: sc
+    categories: [music]
+    disabled: false
+    timeout: 5.0
+  - name: github
+    engine: github
+    shortcut: gh
+    categories: [it]
+    disabled: false
+    timeout: 5.0
+  - name: gitlab
+    engine: gitlab
+    shortcut: gl
+    categories: [it]
+    disabled: false
+    timeout: 5.0
+  - name: stackoverflow
+    engine: stackoverflow
+    shortcut: so
+    categories: [it]
+    disabled: false
+    timeout: 5.0
+  - name: reddit
+    engine: reddit
+    shortcut: rd
+    categories: [social]
+    disabled: false
+    timeout: 5.0
+  - name: twitter
+    engine: twitter
+    shortcut: tw
+    categories: [social]
+    disabled: false
+    timeout: 5.0
