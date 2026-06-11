@@ -63,19 +63,24 @@ export interface StreamOptions {
   signal?: AbortSignal;
   onDelta: (text: string) => void;
   onDone?: () => void;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 export async function streamChat(opts: StreamOptions): Promise<string> {
+  const body: Record<string, any> = {
+    model: opts.model,
+    messages: opts.messages,
+    stream: true,
+  };
+  if (opts.temperature !== undefined) body.options = { ...(body.options ?? {}), temperature: opts.temperature };
+  if (opts.maxTokens !== undefined) body.options = { ...(body.options ?? {}), num_predict: opts.maxTokens };
   const res = await fetch(
     `${opts.baseUrl.replace(/\/$/, "")}/api/chat`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: opts.model,
-        messages: opts.messages,
-        stream: true,
-      }),
+      body: JSON.stringify(body),
       signal: opts.signal,
     }
   );
@@ -125,6 +130,8 @@ export interface ToolCallOptions {
   searxngUrl?: string;
   webSearchResults?: number;
   maxSteps?: number;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 const WEB_SEARCH_TOOL = {
