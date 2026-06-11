@@ -259,10 +259,15 @@ export async function streamChatWithTools(opts: ToolCallOptions): Promise<{
 }
 
 export function toApiMessages(messages: Message[], systemPrompt?: string) {
-  const out: { role: string; content: string }[] = [];
+  const out: { role: string; content: string; images?: string[] }[] = [];
   if (systemPrompt) out.push({ role: "system", content: systemPrompt });
   for (const m of messages) {
-    out.push({ role: m.role, content: m.content });
+    const entry: { role: string; content: string; images?: string[] } = {
+      role: m.role,
+      content: m.content,
+    };
+    if (m.images && m.images.length) entry.images = m.images;
+    out.push(entry);
   }
   return out;
 }
