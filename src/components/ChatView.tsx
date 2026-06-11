@@ -687,6 +687,18 @@ function MessageBlock({ message }: { message: Message }) {
   if (message.role === "user") {
     return (
       <div className="flex flex-col items-end gap-1.5">
+        {message.images && message.images.length > 0 && (
+          <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+            {message.images.map((b64, i) => (
+              <img
+                key={i}
+                src={`data:image/*;base64,${b64}`}
+                alt="attachment"
+                className="h-24 w-24 rounded-lg border border-border object-cover"
+              />
+            ))}
+          </div>
+        )}
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
             {message.attachments.map((a) => (
