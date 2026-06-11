@@ -422,18 +422,12 @@ export function ChatView({ chatId }: { chatId: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-border px-6 py-3">
+      <header className="flex items-center border-b border-border px-6 py-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="font-medium text-foreground">
             {chat?.title || "New chat"}
           </span>
         </div>
-        <button
-          onClick={() => navigate({ to: "/" })}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Home
-        </button>
       </header>
 
       <div ref={scrollRef} className="scroll-thin flex-1 overflow-y-auto">
@@ -644,12 +638,6 @@ export function ChatView({ chatId }: { chatId: string }) {
               </button>
             </div>
           </div>
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Connected to {settings.ollamaBaseUrl}
-            {mode === "research" && settings.opencodeEnabled
-              ? " · OpenCode agent"
-              : ""}
-          </p>
         </div>
       </div>
     </div>
