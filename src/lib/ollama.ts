@@ -15,6 +15,47 @@ export async function listOllamaModels(baseUrl: string): Promise<OllamaModel[]> 
   return (data.models ?? []) as OllamaModel[];
 }
 
+const VISION_NAME_RE =
+  /(llava|bakllava|moondream|vision|-vl\b|vl-|qwen2\.5vl|qwen2-vl|qwen3-vl|minicpm-v|gemma3|llama3\.2-vision|pixtral|cogvlm|internvl|granite.*vision)/i;
+
+const _capCache = new Map<string, string[]>();
+export async function getModelCapabilities(
+  baseUrl: string,
+  model: string
+): Promise<string[]> {
+  const key = `${baseUrl}::${model}`;
+  if (_capCache.has(key)) return _capCache.get(key)!;
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/show`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const caps: string[] = Array.isArray(data?.capabilities)
+        ? data.capabilities
+        : [];
+      _capCache.set(key, caps);
+      return caps;
+    }
+  } catch {
+    /* ignore */
+  }
+  const caps = VISION_NAME_RE.test(model) ? ["vision"] : [];
+  _capCache.set(key, caps);
+  return caps;
+}
+
+export async function modelSupportsVision(
+  baseUrl: string,
+  model: string
+): Promise<boolean> {
+  if (VISION_NAME_RE.test(model)) return true;
+  const caps = await getModelCapabilities(baseUrl, model);
+  return caps.includes("vision");
+}
+
 export interface StreamOptions {
   baseUrl: string;
   model: string;
@@ -218,10 +259,15 @@ export async function streamChatWithTools(opts: ToolCallOptions): Promise<{
 }
 
 export function toApiMessages(messages: Message[], systemPrompt?: string) {
-  const out: { role: string; content: string }[] = [];
+  const out: { role: string; content: string; images?: string[] }[] = [];
   if (systemPrompt) out.push({ role: "system", content: systemPrompt });
   for (const m of messages) {
-    out.push({ role: m.role, content: m.content });
+    const entry: { role: string; content: string; images?: string[] } = {
+      role: m.role,
+      content: m.content,
+    };
+    if (m.images && m.images.length) entry.images = m.images;
+    out.push(entry);
   }
   return out;
 }

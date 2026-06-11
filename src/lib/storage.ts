@@ -25,6 +25,7 @@ export interface Message {
   citations?: Citation[];
   thinking?: string;
   attachments?: Attachment[];
+  images?: string[]; // base64 (no data: prefix) for vision models
   createdAt: number;
 }
 

@@ -10,8 +10,11 @@ import {
   FileText,
   Paperclip,
   X,
+  Image as ImageIcon,
+  Search,
 } from "lucide-react";
 import { useSettings } from "@/hooks/use-settings";
+import { useModelVision } from "@/hooks/use-model-vision";
 import {
   type Chat,
   type Message,
@@ -34,6 +37,48 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2MB text
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB image
+
+const TEXT_EXT_RE =
+  /\.(txt|md|markdown|json|jsonl|ya?ml|toml|csv|tsv|log|xml|html?|css|scss|sass|less|js|jsx|ts|tsx|mjs|cjs|py|rb|go|rs|java|kt|kts|c|h|cc|cpp|hpp|cs|php|swift|sh|bash|zsh|fish|sql|env|ini|cfg|conf|properties|gradle|dockerfile|gitignore|prettierrc|eslintrc|lock)$/i;
+
+function isLikelyTextFile(file: File): boolean {
+  const t = (file.type || "").toLowerCase();
+  if (t.startsWith("image/") || t.startsWith("video/") || t.startsWith("audio/"))
+    return false;
+  if (t.startsWith("text/")) return true;
+  if (
+    t === "application/json" ||
+    t === "application/xml" ||
+    t === "application/x-yaml" ||
+    t === "application/javascript" ||
+    t === "application/typescript" ||
+    t === "application/x-sh"
+  )
+    return true;
+  if (!t) return TEXT_EXT_RE.test(file.name);
+  return TEXT_EXT_RE.test(file.name);
+}
+
+async function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+interface PendingImage {
+  id: string;
+  name: string;
+  dataUrl: string;
+  base64: string;
+}
 
 async function readFileAsText(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -60,6 +105,10 @@ function formatAttachmentsForPrompt(atts: Attachment[]): string {
 
 export function ChatView({ chatId }: { chatId: string }) {
   const settings = useSettings();
+  const visionSupported = useModelVision(
+    settings.ollamaBaseUrl,
+    settings.ollamaModel
+  );
   const navigate = useNavigate();
   const [chat, setChat] = useState<Chat | null>(null);
   const [input, setInput] = useState("");
@@ -67,10 +116,13 @@ export function ChatView({ chatId }: { chatId: string }) {
   const [streaming, setStreaming] = useState(false);
   const [progress, setProgress] = useState<ResearchProgress | null>(null);
   const [pendingAtts, setPendingAtts] = useState<Attachment[]>([]);
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [webSearchOn, setWebSearchOn] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || !files.length) return;
@@ -78,6 +130,12 @@ export function ChatView({ chatId }: { chatId: string }) {
     for (const file of Array.from(files)) {
       if (file.size > MAX_FILE_BYTES) {
         toast.error(`${file.name} is too large (max 2MB)`);
+        continue;
+      }
+      if (!isLikelyTextFile(file)) {
+        toast.error(
+          `${file.name} is not a text file. Use the image button for images.`
+        );
         continue;
       }
       try {
@@ -108,6 +166,40 @@ export function ChatView({ chatId }: { chatId: string }) {
 
   const removeAtt = (id: string) =>
     setPendingAtts((p) => p.filter((a) => a.id !== id));
+
+  const handleImages = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    if (!visionSupported) {
+      toast.error("Current model does not support image input");
+      return;
+    }
+    const added: PendingImage[] = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) {
+        toast.error(`${file.name} is not an image`);
+        continue;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        toast.error(`${file.name} is too large (max 8MB)`);
+        continue;
+      }
+      try {
+        const base64 = await readFileAsBase64(file);
+        added.push({
+          id: newId(),
+          name: file.name,
+          dataUrl: `data:${file.type};base64,${base64}`,
+          base64,
+        });
+      } catch {
+        toast.error(`Could not read ${file.name}`);
+      }
+    }
+    if (added.length) setPendingImages((p) => [...p, ...added]);
+  };
+
+  const removeImage = (id: string) =>
+    setPendingImages((p) => p.filter((i) => i.id !== id));
 
   const setModel = (model: string) => {
     const next = { ...loadSettings(), ollamaModel: model };
@@ -154,11 +246,18 @@ export function ChatView({ chatId }: { chatId: string }) {
   };
 
   const send = async () => {
-    if (!chat || (!input.trim() && pendingAtts.length === 0) || streaming) return;
+    if (
+      !chat ||
+      (!input.trim() && pendingAtts.length === 0 && pendingImages.length === 0) ||
+      streaming
+    )
+      return;
     const text = input.trim();
     const atts = pendingAtts;
+    const imgs = pendingImages;
     setInput("");
     setPendingAtts([]);
+    setPendingImages([]);
 
     const attBlock = formatAttachmentsForPrompt(atts);
     const promptText = text + attBlock;
@@ -169,6 +268,7 @@ export function ChatView({ chatId }: { chatId: string }) {
       content: text || "(see attachments)",
       mode,
       attachments: atts.length ? atts : undefined,
+      images: imgs.length ? imgs.map((i) => i.base64) : undefined,
       createdAt: Date.now(),
     };
     const asstMsg: Message = {
@@ -231,18 +331,23 @@ export function ChatView({ chatId }: { chatId: string }) {
         };
         await saveReport(report);
       } else {
-        const sys = settings.searxngUrl
+        const useWeb = webSearchOn && !!settings.searxngUrl;
+        const sys = useWeb
           ? `${settings.systemPrompt}\n\nYou have a web_search(query) tool. Call it whenever the user asks about recent events, news, prices, live data, or anything you may not know. Cite sources using [n] referring to the numbered results returned by the tool.`
           : settings.systemPrompt;
         const history = toApiMessages(chat.messages, sys);
-        history.push({ role: "user", content: promptText });
+        history.push({
+          role: "user",
+          content: promptText,
+          ...(imgs.length ? { images: imgs.map((i) => i.base64) } : {}),
+        });
         const result = await streamChatWithTools({
           baseUrl: settings.ollamaBaseUrl,
           model: settings.ollamaModel,
           messages: history,
           signal: ctrl.signal,
           onDelta: appendDelta,
-          searxngUrl: settings.searxngUrl,
+          searxngUrl: useWeb ? settings.searxngUrl : undefined,
           webSearchResults: settings.webSearchResults,
           onToolStart: (_n, args) =>
             setProgress({
@@ -361,10 +466,22 @@ export function ChatView({ chatId }: { chatId: string }) {
             }}
             onDrop={(e) => {
               e.preventDefault();
-              handleFiles(e.dataTransfer.files);
+            const files = Array.from(e.dataTransfer.files);
+            const images = files.filter((f) => f.type.startsWith("image/"));
+            const others = files.filter((f) => !f.type.startsWith("image/"));
+            if (images.length) {
+              const dt = new DataTransfer();
+              images.forEach((f) => dt.items.add(f));
+              handleImages(dt.files);
+            }
+            if (others.length) {
+              const dt = new DataTransfer();
+              others.forEach((f) => dt.items.add(f));
+              handleFiles(dt.files);
+            }
             }}
           >
-            {pendingAtts.length > 0 && (
+          {(pendingAtts.length > 0 || pendingImages.length > 0) && (
               <div className="flex flex-wrap gap-1.5 px-3 pt-3">
                 {pendingAtts.map((a) => (
                   <div
@@ -381,6 +498,24 @@ export function ChatView({ chatId }: { chatId: string }) {
                     </button>
                   </div>
                 ))}
+              {pendingImages.map((im) => (
+                <div
+                  key={im.id}
+                  className="relative overflow-hidden rounded-lg border border-border bg-muted/50"
+                >
+                  <img
+                    src={im.dataUrl}
+                    alt={im.name}
+                    className="h-14 w-14 object-cover"
+                  />
+                  <button
+                    onClick={() => removeImage(im.id)}
+                    className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 hover:bg-background"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
               </div>
             )}
             <textarea
@@ -406,15 +541,65 @@ export function ChatView({ chatId }: { chatId: string }) {
                 if (fileInputRef.current) fileInputRef.current.value = "";
               }}
             />
+            <input
+              ref={imageInputRef}
+              type="file"
+              multiple
+              hidden
+              accept="image/*"
+              onChange={(e) => {
+                handleImages(e.target.files);
+                if (imageInputRef.current) imageInputRef.current.value = "";
+              }}
+            />
             <div className="flex items-center justify-between gap-2 px-2 pb-2">
               <div className="flex flex-wrap items-center gap-1">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-accent/50 hover:text-foreground"
-                  title="Attach files"
+                  title="Attach text files"
                 >
                   <Paperclip className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={!visionSupported}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition",
+                    visionSupported
+                      ? "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      : "cursor-not-allowed text-muted-foreground/40"
+                  )}
+                  title={
+                    visionSupported
+                      ? "Attach image"
+                      : "Current model does not support vision"
+                  }
+                >
+                  <ImageIcon className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!settings.searxngUrl) {
+                      toast.error("Set SearXNG URL in Settings first");
+                      return;
+                    }
+                    setWebSearchOn((v) => !v);
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition",
+                    webSearchOn
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  )}
+                  title={
+                    webSearchOn ? "Web search enabled" : "Enable web search"
+                  }
+                >
+                  <Search className="h-3.5 w-3.5" />
                 </button>
                 <ModelSelector
                   baseUrl={settings.ollamaBaseUrl}
@@ -438,7 +623,12 @@ export function ChatView({ chatId }: { chatId: string }) {
 
               <button
                 onClick={streaming ? stop : send}
-                disabled={!streaming && !input.trim() && pendingAtts.length === 0}
+                disabled={
+                  !streaming &&
+                  !input.trim() &&
+                  pendingAtts.length === 0 &&
+                  pendingImages.length === 0
+                }
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-full transition",
                   streaming
@@ -497,6 +687,18 @@ function MessageBlock({ message }: { message: Message }) {
   if (message.role === "user") {
     return (
       <div className="flex flex-col items-end gap-1.5">
+        {message.images && message.images.length > 0 && (
+          <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+            {message.images.map((b64, i) => (
+              <img
+                key={i}
+                src={`data:image/*;base64,${b64}`}
+                alt="attachment"
+                className="h-24 w-24 rounded-lg border border-border object-cover"
+              />
+            ))}
+          </div>
+        )}
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
             {message.attachments.map((a) => (
