@@ -20,9 +20,7 @@ import {
   Moon,
   Monitor,
   Cpu,
-  Thermometer,
   Hash,
-  MessageSquareQuote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

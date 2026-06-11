@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUp,
   Sparkles,
@@ -107,7 +106,6 @@ export function ChatView({ chatId }: { chatId: string }) {
     settings.ollamaBaseUrl,
     settings.ollamaModel
   );
-  const navigate = useNavigate();
   const [chat, setChat] = useState<Chat | null>(null);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<ChatMode>("chat");
