@@ -31,7 +31,7 @@ import {
 import { streamChat, streamChatWithTools, toApiMessages, generateTitle } from "@/lib/ollama";
 import { runDeepResearch, type ResearchProgress } from "@/lib/research";
 import { Markdown } from "./Markdown";
-import { ModelSelector } from "./ModelSelector";
+
 import { emitChatsChanged } from "./AppLayout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -201,10 +201,6 @@ export function ChatView({ chatId }: { chatId: string }) {
   const removeImage = (id: string) =>
     setPendingImages((p) => p.filter((i) => i.id !== id));
 
-  const setModel = (model: string) => {
-    const next = { ...loadSettings(), ollamaModel: model };
-    saveSettings(next);
-  };
 
 
   // Load or init chat
@@ -349,6 +345,8 @@ export function ChatView({ chatId }: { chatId: string }) {
           onDelta: appendDelta,
           searxngUrl: useWeb ? settings.searxngUrl : undefined,
           webSearchResults: settings.webSearchResults,
+          temperature: settings.temperature,
+          maxTokens: settings.maxTokens,
           onToolStart: (_n, args) =>
             setProgress({
               phase: "searching",
@@ -595,11 +593,6 @@ export function ChatView({ chatId }: { chatId: string }) {
                 >
                   <Search className="h-3.5 w-3.5" />
                 </button>
-                <ModelSelector
-                  baseUrl={settings.ollamaBaseUrl}
-                  value={settings.ollamaModel}
-                  onChange={setModel}
-                />
                 <span className="mx-1 h-4 w-px bg-border" />
                 <ModeBtn
                   active={mode === "chat"}
