@@ -63,19 +63,24 @@ export interface StreamOptions {
   signal?: AbortSignal;
   onDelta: (text: string) => void;
   onDone?: () => void;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 export async function streamChat(opts: StreamOptions): Promise<string> {
+  const body: Record<string, any> = {
+    model: opts.model,
+    messages: opts.messages,
+    stream: true,
+  };
+  if (opts.temperature !== undefined) body.options = { ...(body.options ?? {}), temperature: opts.temperature };
+  if (opts.maxTokens !== undefined) body.options = { ...(body.options ?? {}), num_predict: opts.maxTokens };
   const res = await fetch(
     `${opts.baseUrl.replace(/\/$/, "")}/api/chat`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: opts.model,
-        messages: opts.messages,
-        stream: true,
-      }),
+      body: JSON.stringify(body),
       signal: opts.signal,
     }
   );
@@ -125,6 +130,8 @@ export interface ToolCallOptions {
   searxngUrl?: string;
   webSearchResults?: number;
   maxSteps?: number;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 const WEB_SEARCH_TOOL = {
@@ -159,18 +166,21 @@ export async function streamChatWithTools(opts: ToolCallOptions): Promise<{
 
   for (let step = 0; step < maxSteps; step++) {
     // Probe (non-streaming) so we can read tool_calls reliably.
+    const probeBody: Record<string, any> = {
+      model: opts.model,
+      messages,
+      stream: false,
+      tools,
+    };
+    if (opts.temperature !== undefined) probeBody.options = { ...(probeBody.options ?? {}), temperature: opts.temperature };
+    if (opts.maxTokens !== undefined) probeBody.options = { ...(probeBody.options ?? {}), num_predict: opts.maxTokens };
     const probe = await fetch(
       `${opts.baseUrl.replace(/\/$/, "")}/api/chat`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: opts.signal,
-        body: JSON.stringify({
-          model: opts.model,
-          messages,
-          stream: false,
-          tools,
-        }),
+        body: JSON.stringify(probeBody),
       }
     );
     if (!probe.ok) {
@@ -189,6 +199,8 @@ export async function streamChatWithTools(opts: ToolCallOptions): Promise<{
         messages,
         signal: opts.signal,
         onDelta: opts.onDelta,
+        temperature: opts.temperature,
+        maxTokens: opts.maxTokens,
       });
       // If streaming returned empty (some models don't replay), fall back to probe content.
       const finalText = full || String(msg.content ?? "");

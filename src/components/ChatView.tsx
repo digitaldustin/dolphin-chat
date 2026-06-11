@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUp,
   Sparkles,
@@ -23,15 +22,13 @@ import {
   getChat,
   saveChat,
   saveFile,
-  saveSettings,
-  loadSettings,
   newId,
   saveReport,
 } from "@/lib/storage";
 import { streamChat, streamChatWithTools, toApiMessages, generateTitle } from "@/lib/ollama";
 import { runDeepResearch, type ResearchProgress } from "@/lib/research";
 import { Markdown } from "./Markdown";
-import { ModelSelector } from "./ModelSelector";
+
 import { emitChatsChanged } from "./AppLayout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -109,7 +106,6 @@ export function ChatView({ chatId }: { chatId: string }) {
     settings.ollamaBaseUrl,
     settings.ollamaModel
   );
-  const navigate = useNavigate();
   const [chat, setChat] = useState<Chat | null>(null);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<ChatMode>("chat");
@@ -201,10 +197,6 @@ export function ChatView({ chatId }: { chatId: string }) {
   const removeImage = (id: string) =>
     setPendingImages((p) => p.filter((i) => i.id !== id));
 
-  const setModel = (model: string) => {
-    const next = { ...loadSettings(), ollamaModel: model };
-    saveSettings(next);
-  };
 
 
   // Load or init chat
@@ -349,6 +341,8 @@ export function ChatView({ chatId }: { chatId: string }) {
           onDelta: appendDelta,
           searxngUrl: useWeb ? settings.searxngUrl : undefined,
           webSearchResults: settings.webSearchResults,
+          temperature: settings.temperature,
+          maxTokens: settings.maxTokens,
           onToolStart: (_n, args) =>
             setProgress({
               phase: "searching",
@@ -422,18 +416,12 @@ export function ChatView({ chatId }: { chatId: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-border px-6 py-3">
+      <header className="flex items-center border-b border-border px-6 py-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="font-medium text-foreground">
             {chat?.title || "New chat"}
           </span>
         </div>
-        <button
-          onClick={() => navigate({ to: "/" })}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Home
-        </button>
       </header>
 
       <div ref={scrollRef} className="scroll-thin flex-1 overflow-y-auto">
@@ -601,11 +589,6 @@ export function ChatView({ chatId }: { chatId: string }) {
                 >
                   <Search className="h-3.5 w-3.5" />
                 </button>
-                <ModelSelector
-                  baseUrl={settings.ollamaBaseUrl}
-                  value={settings.ollamaModel}
-                  onChange={setModel}
-                />
                 <span className="mx-1 h-4 w-px bg-border" />
                 <ModeBtn
                   active={mode === "chat"}
@@ -644,12 +627,6 @@ export function ChatView({ chatId }: { chatId: string }) {
               </button>
             </div>
           </div>
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Connected to {settings.ollamaBaseUrl}
-            {mode === "research" && settings.opencodeEnabled
-              ? " · OpenCode agent"
-              : ""}
-          </p>
         </div>
       </div>
     </div>

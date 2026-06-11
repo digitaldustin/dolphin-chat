@@ -68,6 +68,8 @@ export interface Settings {
   systemPrompt: string;
   theme: "slate" | "mocha" | "forest" | "plum";
   appearance: "light" | "dark" | "system";
+  temperature: number;
+  maxTokens: number;
 }
 
 const DEFAULTS: Settings = {
@@ -81,6 +83,8 @@ const DEFAULTS: Settings = {
     "You are a helpful, knowledgeable assistant. Use markdown for formatting. Cite sources when given.",
   theme: "slate",
   appearance: "dark",
+  temperature: 0.7,
+  maxTokens: 4096,
 };
 
 const SETTINGS_KEY = "dolphin.settings.v1";
