@@ -19,4 +19,4 @@ COPY --from=builder /app/package.json ./
 
 EXPOSE 3000
 
-CMD ["bun", ".dist/server/server.mjs"]
+CMD ["bun", "./dist/server/server.mjs"]
